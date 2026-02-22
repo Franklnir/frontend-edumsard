@@ -376,7 +376,7 @@ const compressImageToTarget = async (file, maxBytes) => {
   })
 }
 
-const apiFetch = async (path, options = {}) => {
+export const apiFetch = async (path, options = {}) => {
   const method = (options.method || 'GET').toUpperCase()
   const body = options.body
   const isForm = typeof FormData !== 'undefined' && body instanceof FormData
