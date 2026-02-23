@@ -237,7 +237,7 @@ const Navbar = () => {
         to={link.to}
         title={collapsed ? link.label : undefined}
         className={`
-          group relative flex items-center gap-4 rounded-2xl px-4 py-3 text-lg font-semibold
+          group relative flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-base font-medium
           transition-all duration-200 select-none
           ${isActive
             ? 'bg-brand-600 text-white shadow-brand-sm'
@@ -331,14 +331,14 @@ const Navbar = () => {
 
       <aside className={`hidden md:flex fixed inset-y-0 left-0 flex-col z-40 bg-white border-r border-slate-100 shadow-sidebar transition-all duration-300 ease-in-out ${isCollapsed ? 'w-[72px]' : 'w-60'}`}>
         {/* Header */}
-        <div className="flex items-center gap-3 px-3 pt-4 pb-3 border-b border-slate-100">
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 shadow-brand-sm flex-shrink-0">
-            <span className="font-extrabold text-white text-base">{schoolName.charAt(0).toUpperCase()}</span>
+        <div className="flex items-center gap-2.5 px-3 pt-4 pb-3 border-b border-slate-100">
+          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 shadow-brand-sm flex-shrink-0">
+            <span className="font-extrabold text-white text-sm">{schoolName.charAt(0).toUpperCase()}</span>
           </div>
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-semibold text-brand-600 uppercase tracking-[0.14em] leading-none mb-0.5">{rb.label} Panel</p>
-              <p className="text-xl font-extrabold text-slate-900 truncate leading-tight">{schoolName}</p>
+              <p className="text-[11px] font-semibold text-brand-600 uppercase tracking-wider leading-none mb-0.5">{rb.label} Panel</p>
+              <p className="text-lg font-bold text-slate-900 truncate leading-tight">{schoolName}</p>
             </div>
           )}
           <button onClick={toggleSidebar}
