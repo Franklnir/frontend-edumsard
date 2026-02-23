@@ -1518,102 +1518,101 @@ const Tenants = () => {
       </div>
 
       {/* Edit Tenant Modal */}
-      {
-        isEditModalOpen && editingTenant && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
-              <h3 className="text-lg font-bold text-slate-900 mb-4">Edit Data Sekolah</h3>
-              <form onSubmit={handleEditSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700">Nama Sekolah</label>
-                  <input
-                    type="text"
-                    value={editForm.name}
-                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700">Slug Subdomain</label>
-                  <input
-                    type="text"
-                    value={editForm.slug}
-                    onChange={(e) => setEditForm({ ...editForm, slug: slugify(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    required
-                  />
-                  <p className="text-[10px] text-slate-500 italic">
-                    * Mengubah slug akan mengubah URL aplikasi. Gunakan dengan hati-hati.
-                  </p>
-                </div>
-                <div className="flex justify-end gap-3 mt-6">
-                  <button
-                    type="button"
-                    onClick={() => setIsEditModalOpen(false)}
-                    className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 rounded-lg"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={editing}
-                    className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50"
-                  >
-                    {editing ? 'Menyimpan...' : 'Simpan Perubahan'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-      {/* Delete Tenant Modal */}
-      {
-        isDeleteModalOpen && deletingTenant && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-rose-100">
-              <h3 className="text-lg font-bold text-slate-900 mb-2">Hapus/Arsip Sekolah?</h3>
-              <div className="p-3 bg-rose-50 rounded-xl border border-rose-100 mb-4">
-                <p className="text-sm text-rose-800 leading-relaxed">
-                  <span className="font-bold">Peringatan:</span> Sekolah <span className="font-bold font-mono">"{deletingTenant.slug}"</span> akan diarsipkan (soft delete). Data tidak benar-benar hilang tapi sekolah tidak akan bisa diakses.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <p className="text-xs text-slate-600">
-                  Ketik slug <span className="font-bold text-slate-900 select-all">{deletingTenant.slug}</span> di bawah untuk konfirmasi:
-                </p>
+      {isEditModalOpen && editingTenant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Edit Data Sekolah</h3>
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Nama Sekolah</label>
                 <input
                   type="text"
-                  value={deleteConfirmation}
-                  onChange={(e) => setDeleteConfirmation(e.target.value)}
-                  placeholder="Konfirmasi slug"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  required
                 />
               </div>
-
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Slug Subdomain</label>
+                <input
+                  type="text"
+                  value={editForm.slug}
+                  onChange={(e) => setEditForm({ ...editForm, slug: slugify(e.target.value) })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <p className="text-[10px] text-slate-500 italic">
+                  * Mengubah slug akan mengubah URL aplikasi. Gunakan dengan hati-cermati.
+                </p>
+              </div>
               <div className="flex justify-end gap-3 mt-6">
                 <button
                   type="button"
-                  onClick={() => setIsDeleteModalOpen(false)}
+                  onClick={() => setIsEditModalOpen(false)}
                   className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 rounded-lg"
                 >
                   Batal
                 </button>
                 <button
-                  type="button"
-                  onClick={handleDeleteConfirm}
-                  disabled={deleting || deleteConfirmation.trim().toLowerCase() !== deletingTenant.slug.toLowerCase()}
-                  className="px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg disabled:opacity-50"
+                  type="submit"
+                  disabled={editing}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50"
                 >
-                  {deleting ? 'Menghapus...' : 'Ya, Arsipkan Sekolah'}
+                  {editing ? 'Menyimpan...' : 'Simpan Perubahan'}
                 </button>
               </div>
-            </div>
+            </form>
+          </div>
+        </div>
       )}
-          </>
-        )
-      }
 
-      export default Tenants
+      {/* Delete Tenant Modal */}
+      {isDeleteModalOpen && deletingTenant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-rose-100">
+            <h3 className="text-lg font-bold text-slate-900 mb-2">Hapus/Arsip Sekolah?</h3>
+            <div className="p-3 bg-rose-50 rounded-xl border border-rose-100 mb-4">
+              <p className="text-sm text-rose-800 leading-relaxed">
+                <span className="font-bold">Peringatan:</span> Sekolah <span className="font-bold font-mono">"{deletingTenant.slug}"</span> akan diarsipkan (soft delete). Data tidak benar-benar hilang tapi sekolah tidak akan bisa diakses.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs text-slate-600">
+                Ketik slug <span className="font-bold text-slate-900 select-all">{deletingTenant.slug}</span> di bawah untuk konfirmasi:
+              </p>
+              <input
+                type="text"
+                value={deleteConfirmation}
+                onChange={(e) => setDeleteConfirmation(e.target.value)}
+                placeholder="Konfirmasi slug"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 rounded-lg"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                disabled={deleting || deleteConfirmation.trim().toLowerCase() !== deletingTenant.slug.toLowerCase()}
+                className="px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg disabled:opacity-50"
+              >
+                {deleting ? 'Menghapus...' : 'Ya, Arsipkan Sekolah'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+export default Tenants
