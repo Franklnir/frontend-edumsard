@@ -75,6 +75,7 @@ export const useAuthStore = create((set, get) => ({
   settings: null,
   isSuperAdmin: false,
   superAdminChecked: false,
+  features: {},
   initialized: false,
   isLoading: false,
   error: null,
@@ -86,9 +87,9 @@ export const useAuthStore = create((set, get) => ({
     try {
       const settings = await get().loadSettings()
 
-      const {
-        data: { session }
-      } = await supabase.auth.getSession()
+      const { data } = await supabase.auth.getSession()
+      const session = data?.session
+      const features = data?.features || {}
 
       const user = session?.user ?? null
       let profile = null
@@ -154,7 +155,7 @@ export const useAuthStore = create((set, get) => ({
         }
       }
 
-      set({ user, profile, settings, initialized: true })
+      set({ user, profile, settings, features, initialized: true })
       await get().loadSuperAdmin(profile)
     } catch (err) {
       logError('Init error:', err)
@@ -388,7 +389,7 @@ export const useAuthStore = create((set, get) => ({
   logout: async () => {
     try {
       await supabase.auth.signOut()
-      set({ user: null, profile: null, error: null, isSuperAdmin: false, superAdminChecked: false })
+      set({ user: null, profile: null, error: null, isSuperAdmin: false, superAdminChecked: false, features: {} })
     } catch (err) {
       logError('Logout error:', err)
     }
@@ -462,9 +463,13 @@ export const useAuthStore = create((set, get) => ({
 
     try {
       const { data, error } = await supabase.super.me()
-      if (!error && data?.is_super_admin) {
-        set({ isSuperAdmin: true, superAdminChecked: true })
-        return true
+      if (!error) {
+        set({
+          isSuperAdmin: !!data?.is_super_admin,
+          features: data?.features || {},
+          superAdminChecked: true
+        })
+        return !!data?.is_super_admin
       }
     } catch (err) {
       logError('Super admin check failed:', err)

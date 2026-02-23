@@ -325,6 +325,16 @@ const Tenants = () => {
   const [restorePreview, setRestorePreview] = useState(null)
   const [restoreIncludeTables, setRestoreIncludeTables] = useState('')
 
+  const [deleting, setDeleting] = useState(false)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [deletingTenant, setDeletingTenant] = useState(null)
+
+  const [editing, setEditing] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editingTenant, setEditingTenant] = useState(null)
+  const [editForm, setEditForm] = useState({ name: '', slug: '' })
+
   const [form, setForm] = useState({
     name: '',
     slug: '',
@@ -570,6 +580,78 @@ const Tenants = () => {
     }
   }
 
+  const handleEditTenant = (tenant) => {
+    setEditingTenant(tenant)
+    setEditForm({
+      name: tenant.name || '',
+      slug: tenant.slug || ''
+    })
+    setIsEditModalOpen(true)
+  }
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault()
+    if (!editingTenant) return
+    if (!editForm.name.trim() || !editForm.slug.trim()) {
+      pushToast('error', 'Nama dan slug harus diisi')
+      return
+    }
+
+    setEditing(true)
+    try {
+      const { error } = await supabase.super.updateTenant(editingTenant.id, {
+        name: editForm.name.trim(),
+        slug: editForm.slug.trim()
+      })
+      if (error) throw error
+      pushToast('success', 'Data sekolah berhasil diperbarui')
+      setIsEditModalOpen(false)
+      await loadTenants()
+      if (selectedTenantId === editingTenant.id) {
+        await loadTenantDetail(editingTenant.id, { silent: true, suppressToast: true })
+      }
+    } catch (err) {
+      pushToast('error', err?.message || 'Gagal memperbarui data sekolah')
+    } finally {
+      setEditing(false)
+    }
+  }
+
+  const handleDeleteStart = (tenant) => {
+    setDeletingTenant(tenant)
+    setDeleteConfirmation('')
+    setIsDeleteModalOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingTenant) return
+    if (deleteConfirmation.trim().toLowerCase() !== deletingTenant.slug.toLowerCase()) {
+      pushToast('error', 'Konfirmasi slug tidak sesuai')
+      return
+    }
+
+    setDeleting(true)
+    try {
+      const { error } = await supabase.super.deleteTenant(deletingTenant.id, {
+        confirm: true,
+        confirmation: deleteConfirmation.trim(),
+        reason: 'Dihapus via panel super admin'
+      })
+      if (error) throw error
+      pushToast('success', 'Sekolah berhasil diarsipkan')
+      setIsDeleteModalOpen(false)
+      if (selectedTenantId === deletingTenant.id) {
+        setSelectedTenantId('')
+        setTenantDetail(null)
+      }
+      await loadTenants()
+    } catch (err) {
+      pushToast('error', err?.message || 'Gagal menghapus sekolah')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const handleRestoreFileChange = async (event) => {
     const file = event.target.files?.[0]
     if (!file) return
@@ -771,646 +853,767 @@ const Tenants = () => {
   )
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold text-slate-900">Panel Super Admin</h1>
-        <p className="text-sm text-slate-600">
-          Buat sekolah baru, lihat ringkasan tenant, dan kelola admin sekolah.
-        </p>
-      </div>
-
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Buat Sekolah</h2>
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700">Nama Sekolah</label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={handleChange('name')}
-              placeholder="Contoh: SMA Negeri 1"
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700">Subdomain Sekolah</label>
-            <input
-              type="text"
-              value={form.slug}
-              onChange={handleChange('slug')}
-              placeholder="contoh: sma1"
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-            {previewDomain && (
-              <p className="text-xs text-slate-500">
-                URL sekolah: <span className="font-semibold">{previewDomain}</span>
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700">Nama Admin Sekolah</label>
-            <input
-              type="text"
-              value={form.adminName}
-              onChange={handleChange('adminName')}
-              placeholder="Nama admin"
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700">Email Admin</label>
-            <input
-              type="email"
-              value={form.adminEmail}
-              onChange={handleChange('adminEmail')}
-              placeholder="admin@sekolah.com"
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700">Password Admin</label>
-            <PasswordInput
-              value={form.adminPassword}
-              onChange={handleChange('adminPassword')}
-              placeholder="Minimal 6 karakter"
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-
-          <div className="flex items-end">
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full md:w-auto px-5 py-2.5 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 disabled:opacity-60"
-            >
-              {saving ? 'Menyimpan...' : 'Buat Sekolah'}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-slate-900">Daftar Sekolah</h2>
-          <button
-            type="button"
-            onClick={loadTenants}
-            className="text-xs px-3 py-1.5 rounded-full border border-slate-200 hover:bg-slate-50"
-          >
-            Refresh
-          </button>
+    <>
+      <div className="p-6 space-y-6">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-2xl font-bold text-slate-900">Panel Super Admin</h1>
+          <p className="text-sm text-slate-600">
+            Buat sekolah baru, lihat ringkasan tenant, dan kelola admin sekolah.
+          </p>
         </div>
 
-        {loading ? (
-          <div className="text-sm text-slate-500">Memuat data sekolah...</div>
-        ) : tenants.length === 0 ? (
-          <div className="text-sm text-slate-500">Belum ada sekolah.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="text-left text-slate-500">
-                  <th className="py-2 pr-4">Sekolah</th>
-                  <th className="py-2 pr-4">Subdomain</th>
-                  <th className="py-2 pr-4">Status</th>
-                  <th className="py-2 pr-4">Dibuat</th>
-                  <th className="py-2 pr-4 text-center">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="text-slate-700">
-                {tenants.map((tenant) => (
-                  <tr
-                    key={tenant.id}
-                    className={`border-t border-slate-100 cursor-pointer hover:bg-slate-50 ${selectedTenantId === tenant.id ? 'bg-indigo-50/70' : ''
-                      }`}
-                    onClick={() => handleSelectTenant(tenant.id)}
-                  >
-                    <td className="py-2 pr-4 font-semibold text-slate-900">{tenant.name || '-'}</td>
-                    <td className="py-2 pr-4">
-                      {tenant.subdomain_host || (tenant.slug ? `${tenant.slug}.${rootDomain}` : '-')}
-                    </td>
-                    <td className="py-2 pr-4">
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${tenantStatusBadgeClass(
-                          tenant.status
-                        )}`}
-                      >
-                        {tenant.status || 'unknown'}
-                      </span>
-                    </td>
-                    <td className="py-2 pr-4 text-slate-500">{formatDateTime(tenant.created_at)}</td>
-                    <td className="py-2 pr-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleSelectTenant(tenant.id)
-                          }}
-                          className="text-xs px-3 py-1.5 rounded-full border border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                        >
-                          Detail
-                        </button>
-                        <a
-                          href={tenant.login_url || (tenant.slug ? `https://${tenant.slug}.${rootDomain}/login` : '#')}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-xs px-3 py-1.5 rounded-full bg-indigo-600 text-white font-semibold hover:bg-indigo-700"
-                        >
-                          Buka
-                        </a>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {selectedTenantId && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">
-                {detailTenant?.name || 'Detail Sekolah'}
-              </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                {detailTenant?.subdomain_host || (detailTenant?.slug ? `${detailTenant.slug}.${rootDomain}` : '-')}
-              </p>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span
-                  className={`text-xs px-2 py-0.5 rounded-full ${tenantStatusBadgeClass(
-                    detailTenant?.status
-                  )}`}
-                >
-                  {detailTenant?.status || 'unknown'}
-                </span>
-                {detailTenant?.status_reason && (
-                  <span className="text-xs text-slate-500">
-                    Alasan: {detailTenant.status_reason}
-                  </span>
-                )}
-                {detailTenant?.status_changed_at && (
-                  <span className="text-xs text-slate-400">
-                    Update: {formatDateTime(detailTenant.status_changed_at)}
-                  </span>
-                )}
-                <a
-                  href={detailTenant?.login_url || (detailTenant?.slug ? `https://${detailTenant.slug}.${rootDomain}/login` : '#')}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full hover:bg-indigo-100"
-                >
-                  Buka Panel Login
-                </a>
-                <span className="text-xs text-indigo-700 bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-full">
-                  Admin Utama:{' '}
-                  {primaryAdminInfo?.name ||
-                    primaryAdminInfo?.email ||
-                    detailTenant?.primary_admin_name ||
-                    'Belum ditetapkan'}
-                </span>
-              </div>
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">Buat Sekolah</h2>
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">Nama Sekolah</label>
+              <input
+                type="text"
+                value={form.name}
+                onChange={handleChange('name')}
+                placeholder="Contoh: SMA Negeri 1"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
             </div>
-            <div className="flex items-center gap-2">
-              <div className="hidden lg:flex items-center gap-1">
-                {TENANT_STATUS_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => handleTenantStatusUpdate(option.value)}
-                    disabled={statusSaving || detailLoading || detailTenant?.status === option.value}
-                    className={`text-xs px-3 py-1.5 rounded-full border disabled:opacity-60 ${option.value === 'active'
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">Subdomain Sekolah</label>
+              <input
+                type="text"
+                value={form.slug}
+                onChange={handleChange('slug')}
+                placeholder="contoh: sma1"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              {previewDomain && (
+                <p className="text-xs text-slate-500">
+                  URL sekolah: <span className="font-semibold">{previewDomain}</span>
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">Nama Admin Sekolah</label>
+              <input
+                type="text"
+                value={form.adminName}
+                onChange={handleChange('adminName')}
+                placeholder="Nama admin"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">Email Admin</label>
+              <input
+                type="email"
+                value={form.adminEmail}
+                onChange={handleChange('adminEmail')}
+                placeholder="admin@sekolah.com"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">Password Admin</label>
+              <PasswordInput
+                value={form.adminPassword}
+                onChange={handleChange('adminPassword')}
+                placeholder="Minimal 6 karakter"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div className="flex items-end">
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full md:w-auto px-5 py-2.5 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 disabled:opacity-60"
+              >
+                {saving ? 'Menyimpan...' : 'Buat Sekolah'}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-900">Daftar Sekolah</h2>
+            <button
+              type="button"
+              onClick={loadTenants}
+              className="text-xs px-3 py-1.5 rounded-full border border-slate-200 hover:bg-slate-50"
+            >
+              Refresh
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="text-sm text-slate-500">Memuat data sekolah...</div>
+          ) : tenants.length === 0 ? (
+            <div className="text-sm text-slate-500">Belum ada sekolah.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="text-left text-slate-500">
+                    <th className="py-2 pr-4">Sekolah</th>
+                    <th className="py-2 pr-4">Subdomain</th>
+                    <th className="py-2 pr-4">Status</th>
+                    <th className="py-2 pr-4">Dibuat</th>
+                    <th className="py-2 pr-4 text-center">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="text-slate-700">
+                  {tenants.map((tenant) => (
+                    <tr
+                      key={tenant.id}
+                      className={`border-t border-slate-100 cursor-pointer hover:bg-slate-50 ${selectedTenantId === tenant.id ? 'bg-indigo-50/70' : ''
+                        }`}
+                      onClick={() => handleSelectTenant(tenant.id)}
+                    >
+                      <td className="py-2 pr-4 font-semibold text-slate-900">{tenant.name || '-'}</td>
+                      <td className="py-2 pr-4">
+                        {tenant.subdomain_host || (tenant.slug ? `${tenant.slug}.${rootDomain}` : '-')}
+                      </td>
+                      <td className="py-2 pr-4">
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full ${tenantStatusBadgeClass(
+                            tenant.status
+                          )}`}
+                        >
+                          {tenant.status || 'unknown'}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-4 text-slate-500">{formatDateTime(tenant.created_at)}</td>
+                      <td className="py-2 pr-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleSelectTenant(tenant.id)
+                            }}
+                            className="text-xs px-3 py-1.5 rounded-full border border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                            title="Detail Sekolah"
+                          >
+                            Detail
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleEditTenant(tenant)
+                            }}
+                            className="text-xs px-3 py-1.5 rounded-full border border-slate-200 text-slate-700 hover:bg-slate-50"
+                            title="Edit Nama/Slug"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteStart(tenant)
+                            }}
+                            className="text-xs px-3 py-1.5 rounded-full border border-rose-200 text-rose-700 hover:bg-rose-50"
+                            title="Hapus/Arsip Sekolah"
+                          >
+                            Hapus
+                          </button>
+                          <a
+                            href={tenant.login_url || (tenant.slug ? `https://${tenant.slug}.${rootDomain}/login` : '#')}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-xs px-3 py-1.5 rounded-full bg-indigo-600 text-white font-semibold hover:bg-indigo-700"
+                          >
+                            Buka
+                          </a>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {selectedTenantId && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">
+                  {detailTenant?.name || 'Detail Sekolah'}
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  {detailTenant?.subdomain_host || (detailTenant?.slug ? `${detailTenant.slug}.${rootDomain}` : '-')}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full ${tenantStatusBadgeClass(
+                      detailTenant?.status
+                    )}`}
+                  >
+                    {detailTenant?.status || 'unknown'}
+                  </span>
+                  {detailTenant?.status_reason && (
+                    <span className="text-xs text-slate-500">
+                      Alasan: {detailTenant.status_reason}
+                    </span>
+                  )}
+                  {detailTenant?.status_changed_at && (
+                    <span className="text-xs text-slate-400">
+                      Update: {formatDateTime(detailTenant.status_changed_at)}
+                    </span>
+                  )}
+                  <a
+                    href={detailTenant?.login_url || (detailTenant?.slug ? `https://${detailTenant.slug}.${rootDomain}/login` : '#')}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full hover:bg-indigo-100"
+                  >
+                    Buka Panel Login
+                  </a>
+                  <span className="text-xs text-indigo-700 bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-full">
+                    Admin Utama:{' '}
+                    {primaryAdminInfo?.name ||
+                      primaryAdminInfo?.email ||
+                      detailTenant?.primary_admin_name ||
+                      'Belum ditetapkan'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="hidden lg:flex items-center gap-1">
+                  {TENANT_STATUS_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => handleTenantStatusUpdate(option.value)}
+                      disabled={statusSaving || detailLoading || detailTenant?.status === option.value}
+                      className={`text-xs px-3 py-1.5 rounded-full border disabled:opacity-60 ${option.value === 'active'
                         ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
                         : option.value === 'suspended'
                           ? 'border-amber-200 text-amber-700 hover:bg-amber-50'
                           : 'border-rose-200 text-rose-700 hover:bg-rose-50'
-                      }`}
-                  >
-                    {statusSaving && detailTenant?.status !== option.value
-                      ? 'Menyimpan...'
-                      : option.label}
-                  </button>
-                ))}
-              </div>
-              <div className="lg:hidden">
-                <select
-                  value={detailTenant?.status || ''}
-                  onChange={(e) => handleTenantStatusUpdate(e.target.value)}
-                  disabled={statusSaving || detailLoading}
-                  className="text-xs px-2.5 py-1.5 rounded-full border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
-                >
-                  {TENANT_STATUS_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
+                        }`}
+                    >
+                      {statusSaving && detailTenant?.status !== option.value
+                        ? 'Menyimpan...'
+                        : option.label}
+                    </button>
                   ))}
-                </select>
-              </div>
-              <div className="flex items-center gap-2">
-                <label htmlFor="tenant-backup-mode" className="text-xs font-semibold text-slate-600">
-                  Mode Backup
-                </label>
-                <select
-                  id="tenant-backup-mode"
-                  value={backupMode}
-                  onChange={(e) => {
-                    const nextMode = e.target.value
-                    setBackupMode(nextMode)
-                    if (nextMode !== 'students') {
-                      setBackupMonths('all')
-                    }
-                  }}
-                  disabled={backupLoading || detailLoading}
-                  className="text-xs px-2.5 py-1.5 rounded-full border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
-                >
-                  {BACKUP_MODE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {backupMode === 'students' && (
-                <div className="flex items-center gap-2">
-                  <label htmlFor="tenant-backup-period" className="text-xs font-semibold text-slate-600">
-                    Periode
-                  </label>
+                </div>
+                <div className="lg:hidden">
                   <select
-                    id="tenant-backup-period"
-                    value={backupMonths}
-                    onChange={(e) => setBackupMonths(e.target.value)}
-                    disabled={backupLoading || detailLoading}
+                    value={detailTenant?.status || ''}
+                    onChange={(e) => handleTenantStatusUpdate(e.target.value)}
+                    disabled={statusSaving || detailLoading}
                     className="text-xs px-2.5 py-1.5 rounded-full border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
                   >
-                    {BACKUP_PERIOD_OPTIONS.map((option) => (
+                    {TENANT_STATUS_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
                     ))}
                   </select>
                 </div>
-              )}
-              <button
-                type="button"
-                onClick={handleBackupTenant}
-                disabled={backupLoading || detailLoading}
-                className="text-xs px-3 py-1.5 rounded-full border border-emerald-200 text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
-              >
-                {backupLoading ? 'Menyiapkan Backup...' : 'Backup Data (Excel)'}
-              </button>
-              <button
-                type="button"
-                onClick={handleRefreshDetail}
-                disabled={detailRefreshing || detailLoading}
-                className="text-xs px-3 py-1.5 rounded-full border border-slate-200 hover:bg-slate-50 disabled:opacity-60"
-              >
-                {detailRefreshing ? 'Refresh...' : 'Refresh Detail'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedTenantId('')
-                  setTenantDetail(null)
-                  setDetailError('')
-                  setTemporaryPasswords({})
-                  setPrimaryAdminSavingByUser({})
-                  setRestorePayload(null)
-                  setRestoreFileName('')
-                  setRestorePreview(null)
-                  setRestoreIncludeTables('')
-                }}
-                className="text-xs px-3 py-1.5 rounded-full border border-slate-200 hover:bg-slate-50"
-              >
-                Tutup
-              </button>
-            </div>
-          </div>
-
-          {detailLoading ? (
-            <div className="text-sm text-slate-500">Memuat detail sekolah...</div>
-          ) : detailError ? (
-            <div className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-xl p-3">
-              {detailError}
-            </div>
-          ) : !tenantDetail ? (
-            <div className="text-sm text-slate-500">Data detail belum tersedia.</div>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {statCardsFrom(detailStats).map((item) => (
-                  <div key={item.key} className="rounded-xl border border-slate-200 p-4">
-                    <p className="text-xs text-slate-500">{item.label}</p>
-                    <p className="text-2xl font-bold text-slate-900 mt-1">
-                      {numberFormatter.format(item.value)}
-                    </p>
-                  </div>
-                ))}
-                <div className="rounded-xl border border-slate-200 p-4 col-span-2 lg:col-span-1">
-                  <p className="text-xs text-slate-500">Aktivitas Terakhir</p>
-                  <p className="text-sm font-semibold text-slate-900 mt-1">
-                    {formatDateTime(detailStats.last_activity_at)}
-                  </p>
+                <div className="flex items-center gap-2">
+                  <label htmlFor="tenant-backup-mode" className="text-xs font-semibold text-slate-600">
+                    Mode Backup
+                  </label>
+                  <select
+                    id="tenant-backup-mode"
+                    value={backupMode}
+                    onChange={(e) => {
+                      const nextMode = e.target.value
+                      setBackupMode(nextMode)
+                      if (nextMode !== 'students') {
+                        setBackupMonths('all')
+                      }
+                    }}
+                    disabled={backupLoading || detailLoading}
+                    className="text-xs px-2.5 py-1.5 rounded-full border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
+                  >
+                    {BACKUP_MODE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+                {backupMode === 'students' && (
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="tenant-backup-period" className="text-xs font-semibold text-slate-600">
+                      Periode
+                    </label>
+                    <select
+                      id="tenant-backup-period"
+                      value={backupMonths}
+                      onChange={(e) => setBackupMonths(e.target.value)}
+                      disabled={backupLoading || detailLoading}
+                      className="text-xs px-2.5 py-1.5 rounded-full border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
+                    >
+                      {BACKUP_PERIOD_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={handleBackupTenant}
+                  disabled={backupLoading || detailLoading}
+                  className="text-xs px-3 py-1.5 rounded-full border border-emerald-200 text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                >
+                  {backupLoading ? 'Menyiapkan Backup...' : 'Backup Data (Excel)'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRefreshDetail}
+                  disabled={detailRefreshing || detailLoading}
+                  className="text-xs px-3 py-1.5 rounded-full border border-slate-200 hover:bg-slate-50 disabled:opacity-60"
+                >
+                  {detailRefreshing ? 'Refresh...' : 'Refresh Detail'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTenantId('')
+                    setTenantDetail(null)
+                    setDetailError('')
+                    setTemporaryPasswords({})
+                    setPrimaryAdminSavingByUser({})
+                    setRestorePayload(null)
+                    setRestoreFileName('')
+                    setRestorePreview(null)
+                    setRestoreIncludeTables('')
+                  }}
+                  className="text-xs px-3 py-1.5 rounded-full border border-slate-200 hover:bg-slate-50"
+                >
+                  Tutup
+                </button>
               </div>
+            </div>
 
-              <div className="rounded-2xl border border-cyan-200 bg-cyan-50/50 p-4 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold text-slate-900">Monitoring Storage Tenant (Realtime)</h3>
-                  <span className="text-[11px] px-2 py-1 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200">
-                    Auto-refresh 15 detik
-                  </span>
+            {detailLoading ? (
+              <div className="text-sm text-slate-500">Memuat detail sekolah...</div>
+            ) : detailError ? (
+              <div className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-xl p-3">
+                {detailError}
+              </div>
+            ) : !tenantDetail ? (
+              <div className="text-sm text-slate-500">Data detail belum tersedia.</div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  {statCardsFrom(detailStats).map((item) => (
+                    <div key={item.key} className="rounded-xl border border-slate-200 p-4">
+                      <p className="text-xs text-slate-500">{item.label}</p>
+                      <p className="text-2xl font-bold text-slate-900 mt-1">
+                        {numberFormatter.format(item.value)}
+                      </p>
+                    </div>
+                  ))}
+                  <div className="rounded-xl border border-slate-200 p-4 col-span-2 lg:col-span-1">
+                    <p className="text-xs text-slate-500">Aktivitas Terakhir</p>
+                    <p className="text-sm font-semibold text-slate-900 mt-1">
+                      {formatDateTime(detailStats.last_activity_at)}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div className="rounded-xl border border-cyan-200 bg-white p-3">
-                    <p className="text-xs text-slate-500">Storage Terpakai</p>
-                    <p className="text-lg font-bold text-slate-900 mt-1">
-                      {detailStorage.total_label || formatBytes(detailStorage.total_bytes)}
-                    </p>
+                <div className="rounded-2xl border border-cyan-200 bg-cyan-50/50 p-4 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-slate-900">Monitoring Storage Tenant (Realtime)</h3>
+                    <span className="text-[11px] px-2 py-1 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200">
+                      Auto-refresh 15 detik
+                    </span>
                   </div>
-                  <div className="rounded-xl border border-cyan-200 bg-white p-3">
-                    <p className="text-xs text-slate-500">File Tersimpan</p>
-                    <p className="text-lg font-bold text-slate-900 mt-1">
-                      {numberFormatter.format(toNumber(detailStorage.resolved_files))}
-                    </p>
+
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="rounded-xl border border-cyan-200 bg-white p-3">
+                      <p className="text-xs text-slate-500">Storage Terpakai</p>
+                      <p className="text-lg font-bold text-slate-900 mt-1">
+                        {detailStorage.total_label || formatBytes(detailStorage.total_bytes)}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-cyan-200 bg-white p-3">
+                      <p className="text-xs text-slate-500">File Tersimpan</p>
+                      <p className="text-lg font-bold text-slate-900 mt-1">
+                        {numberFormatter.format(toNumber(detailStorage.resolved_files))}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-cyan-200 bg-white p-3">
+                      <p className="text-xs text-slate-500">Referensi Tidak Ditemukan</p>
+                      <p className="text-lg font-bold text-amber-700 mt-1">
+                        {numberFormatter.format(toNumber(detailStorage.unresolved_references))}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-cyan-200 bg-white p-3">
+                      <p className="text-xs text-slate-500">Update Terakhir</p>
+                      <p className="text-sm font-semibold text-slate-900 mt-1">
+                        {formatDateTime(detailStorage.computed_at)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="rounded-xl border border-cyan-200 bg-white p-3">
-                    <p className="text-xs text-slate-500">Referensi Tidak Ditemukan</p>
-                    <p className="text-lg font-bold text-amber-700 mt-1">
-                      {numberFormatter.format(toNumber(detailStorage.unresolved_references))}
-                    </p>
+
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-xs">
+                      <thead>
+                        <tr className="text-left text-slate-500">
+                          <th className="py-2 pr-3">Bucket</th>
+                          <th className="py-2 pr-3">File</th>
+                          <th className="py-2 pr-3">Ukuran</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-slate-700">
+                        {storageBuckets.map((bucket) => (
+                          <tr key={bucket.bucket} className="border-t border-cyan-100">
+                            <td className="py-2 pr-3 font-medium text-slate-900">{bucket.bucket || '-'}</td>
+                            <td className="py-2 pr-3">{numberFormatter.format(toNumber(bucket.files))}</td>
+                            <td className="py-2 pr-3">
+                              {bucket.bytes_label || formatBytes(bucket.bytes)}
+                            </td>
+                          </tr>
+                        ))}
+                        {storageBuckets.length === 0 && (
+                          <tr>
+                            <td colSpan={3} className="py-3 text-slate-500">
+                              Belum ada data storage.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
-                  <div className="rounded-xl border border-cyan-200 bg-white p-3">
-                    <p className="text-xs text-slate-500">Update Terakhir</p>
-                    <p className="text-sm font-semibold text-slate-900 mt-1">
-                      {formatDateTime(detailStorage.computed_at)}
-                    </p>
+                </div>
+
+                <div className="rounded-2xl border border-indigo-200 bg-indigo-50/40 p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-slate-900">
+                      Restore Backup Tenant (JSON + Dry-Run)
+                    </h3>
+                    {restoreFileName ? (
+                      <span className="text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
+                        File: {restoreFileName}
+                      </span>
+                    ) : null}
                   </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                    <div className="lg:col-span-1">
+                      <label className="text-xs font-semibold text-slate-600">Upload JSON Backup</label>
+                      <input
+                        type="file"
+                        accept="application/json,.json"
+                        onChange={handleRestoreFileChange}
+                        className="mt-1 block w-full text-xs text-slate-600 file:mr-2 file:rounded-full file:border-0 file:bg-indigo-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-indigo-700 hover:file:bg-indigo-200"
+                      />
+                    </div>
+                    <div className="lg:col-span-1">
+                      <label className="text-xs font-semibold text-slate-600">
+                        Include Tabel (opsional, pisah koma)
+                      </label>
+                      <input
+                        type="text"
+                        value={restoreIncludeTables}
+                        onChange={(e) => setRestoreIncludeTables(e.target.value)}
+                        placeholder="contoh: profiles,kelas,jadwal"
+                        className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div className="lg:col-span-1 flex items-end gap-2">
+                      <button
+                        type="button"
+                        onClick={handleRestorePreview}
+                        disabled={!restorePayload || restoreLoading || restoreApplying}
+                        className="text-xs px-3 py-2 rounded-lg border border-indigo-200 text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
+                      >
+                        {restoreLoading ? 'Dry-Run...' : 'Preview Dry-Run'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleApplyRestore}
+                        disabled={!restorePayload || restoreApplying || restoreLoading}
+                        className="text-xs px-3 py-2 rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                      >
+                        {restoreApplying ? 'Applying...' : 'Apply Restore'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {restorePreview ? (
+                    <div className="rounded-xl border border-indigo-200 bg-white p-3 space-y-2">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                        <div className="rounded-lg border border-slate-200 p-2">
+                          <p className="text-slate-500">Incoming Rows</p>
+                          <p className="font-semibold text-slate-900">
+                            {numberFormatter.format(toNumber(restorePreview.summary?.incoming_rows))}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-slate-200 p-2">
+                          <p className="text-slate-500">Would Insert</p>
+                          <p className="font-semibold text-indigo-700">
+                            {numberFormatter.format(toNumber(restorePreview.summary?.would_insert))}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-slate-200 p-2">
+                          <p className="text-slate-500">Would Update</p>
+                          <p className="font-semibold text-indigo-700">
+                            {numberFormatter.format(toNumber(restorePreview.summary?.would_update))}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-slate-200 p-2">
+                          <p className="text-slate-500">Errors</p>
+                          <p className="font-semibold text-rose-700">
+                            {numberFormatter.format(toNumber(restorePreview.summary?.errors))}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full text-xs">
+                          <thead>
+                            <tr className="text-left text-slate-500">
+                              <th className="py-2 pr-3">Tabel</th>
+                              <th className="py-2 pr-3">Incoming</th>
+                              <th className="py-2 pr-3">Would Insert</th>
+                              <th className="py-2 pr-3">Would Update</th>
+                              <th className="py-2 pr-3">Errors</th>
+                            </tr>
+                          </thead>
+                          <tbody className="text-slate-700">
+                            {(restorePreview.tables || []).map((item) => (
+                              <tr key={item.table} className="border-t border-slate-100">
+                                <td className="py-2 pr-3 font-medium text-slate-900">{item.table}</td>
+                                <td className="py-2 pr-3">{numberFormatter.format(toNumber(item.incoming_rows))}</td>
+                                <td className="py-2 pr-3">{numberFormatter.format(toNumber(item.would_insert || item.inserted))}</td>
+                                <td className="py-2 pr-3">{numberFormatter.format(toNumber(item.would_update || item.updated))}</td>
+                                <td className="py-2 pr-3 text-rose-700">{numberFormatter.format(toNumber(item.errors))}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500">
+                      Jalankan dry-run dulu untuk melihat simulasi insert/update dan error sebelum apply restore.
+                    </p>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                  Password lama admin tidak bisa ditampilkan karena tersimpan hash. Gunakan tombol reset untuk
+                  menghasilkan password baru, lalu lihat dengan ikon mata.
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="min-w-full text-xs">
+                  <table className="min-w-full text-sm">
                     <thead>
                       <tr className="text-left text-slate-500">
-                        <th className="py-2 pr-3">Bucket</th>
-                        <th className="py-2 pr-3">File</th>
-                        <th className="py-2 pr-3">Ukuran</th>
+                        <th className="py-2 pr-4">Nama Admin</th>
+                        <th className="py-2 pr-4">Email</th>
+                        <th className="py-2 pr-4">Status</th>
+                        <th className="py-2 pr-4">Verifikasi Email</th>
+                        <th className="py-2 pr-4">Terakhir Aktif</th>
+                        <th className="py-2 pr-4">Password</th>
+                        <th className="py-2 pr-4">Aksi</th>
                       </tr>
                     </thead>
                     <tbody className="text-slate-700">
-                      {storageBuckets.map((bucket) => (
-                        <tr key={bucket.bucket} className="border-t border-cyan-100">
-                          <td className="py-2 pr-3 font-medium text-slate-900">{bucket.bucket || '-'}</td>
-                          <td className="py-2 pr-3">{numberFormatter.format(toNumber(bucket.files))}</td>
-                          <td className="py-2 pr-3">
-                            {bucket.bytes_label || formatBytes(bucket.bytes)}
-                          </td>
-                        </tr>
-                      ))}
-                      {storageBuckets.length === 0 && (
+                      {detailAdmins.length === 0 ? (
                         <tr>
-                          <td colSpan={3} className="py-3 text-slate-500">
-                            Belum ada data storage.
+                          <td colSpan={7} className="py-6 text-center text-slate-500">
+                            Belum ada admin pada tenant ini.
                           </td>
                         </tr>
+                      ) : (
+                        detailAdmins.map((admin) => (
+                          <tr key={admin.user_id} className="border-t border-slate-100">
+                            <td className="py-2 pr-4">
+                              <p className="font-semibold text-slate-900">{admin.name || '-'}</p>
+                              {admin.is_primary_admin ? (
+                                <span className="inline-flex mt-1 text-[11px] px-2 py-0.5 rounded-full border border-indigo-200 bg-indigo-100 text-indigo-700">
+                                  Admin Utama (Bypass Approval)
+                                </span>
+                              ) : null}
+                            </td>
+                            <td className="py-2 pr-4">{admin.email || '-'}</td>
+                            <td className="py-2 pr-4">
+                              <span
+                                className={`text-xs px-2 py-0.5 rounded-full ${admin.status === 'active'
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-slate-100 text-slate-600'
+                                  }`}
+                              >
+                                {admin.status || 'unknown'}
+                              </span>
+                            </td>
+                            <td className="py-2 pr-4 text-slate-600">
+                              {admin.email_verified_at ? 'Terverifikasi' : 'Belum'}
+                            </td>
+                            <td className="py-2 pr-4 text-slate-500">{formatDateTime(admin.last_seen_at)}</td>
+                            <td className="py-2 pr-4 min-w-[220px]">
+                              {temporaryPasswords[admin.user_id] ? (
+                                <PasswordInput
+                                  readOnly
+                                  value={temporaryPasswords[admin.user_id]}
+                                  className="w-full px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-xs text-slate-700"
+                                  ariaLabelShow="Tampilkan password sementara"
+                                  ariaLabelHide="Sembunyikan password sementara"
+                                />
+                              ) : (
+                                <span className="text-xs text-slate-400">Belum ada password baru</span>
+                              )}
+                            </td>
+                            <td className="py-2 pr-4">
+                              {Boolean(admin.is_super_admin) ? (
+                                <span className="text-xs px-3 py-1.5 rounded-full border border-amber-200 text-amber-700 bg-amber-50">
+                                  Terkunci (Super Admin)
+                                </span>
+                              ) : (
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleResetTenantAdminPassword(admin)}
+                                    disabled={Boolean(resetLoadingByUser[admin.user_id])}
+                                    className="text-xs px-3 py-1.5 rounded-full border border-indigo-200 text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
+                                  >
+                                    {resetLoadingByUser[admin.user_id] ? 'Reset...' : 'Reset Password'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSetPrimaryAdmin(admin)}
+                                    disabled={
+                                      Boolean(primaryAdminSavingByUser[admin.user_id]) ||
+                                      Boolean(admin.is_primary_admin)
+                                    }
+                                    className="text-xs px-3 py-1.5 rounded-full border border-emerald-200 text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                                  >
+                                    {primaryAdminSavingByUser[admin.user_id]
+                                      ? 'Menyimpan...'
+                                      : admin.is_primary_admin
+                                        ? 'Admin Utama'
+                                        : 'Jadikan Utama'}
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))
                       )}
                     </tbody>
                   </table>
                 </div>
-              </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
 
-              <div className="rounded-2xl border border-indigo-200 bg-indigo-50/40 p-4 space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Restore Backup Tenant (JSON + Dry-Run)
-                  </h3>
-                  {restoreFileName ? (
-                    <span className="text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
-                      File: {restoreFileName}
-                    </span>
-                  ) : null}
+      {/* Edit Tenant Modal */}
+      {
+        isEditModalOpen && editingTenant && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+              <h3 className="text-lg font-bold text-slate-900 mb-4">Edit Data Sekolah</h3>
+              <form onSubmit={handleEditSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Nama Sekolah</label>
+                  <input
+                    type="text"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    required
+                  />
                 </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                  <div className="lg:col-span-1">
-                    <label className="text-xs font-semibold text-slate-600">Upload JSON Backup</label>
-                    <input
-                      type="file"
-                      accept="application/json,.json"
-                      onChange={handleRestoreFileChange}
-                      className="mt-1 block w-full text-xs text-slate-600 file:mr-2 file:rounded-full file:border-0 file:bg-indigo-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-indigo-700 hover:file:bg-indigo-200"
-                    />
-                  </div>
-                  <div className="lg:col-span-1">
-                    <label className="text-xs font-semibold text-slate-600">
-                      Include Tabel (opsional, pisah koma)
-                    </label>
-                    <input
-                      type="text"
-                      value={restoreIncludeTables}
-                      onChange={(e) => setRestoreIncludeTables(e.target.value)}
-                      placeholder="contoh: profiles,kelas,jadwal"
-                      className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div className="lg:col-span-1 flex items-end gap-2">
-                    <button
-                      type="button"
-                      onClick={handleRestorePreview}
-                      disabled={!restorePayload || restoreLoading || restoreApplying}
-                      className="text-xs px-3 py-2 rounded-lg border border-indigo-200 text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
-                    >
-                      {restoreLoading ? 'Dry-Run...' : 'Preview Dry-Run'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleApplyRestore}
-                      disabled={!restorePayload || restoreApplying || restoreLoading}
-                      className="text-xs px-3 py-2 rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 disabled:opacity-60"
-                    >
-                      {restoreApplying ? 'Applying...' : 'Apply Restore'}
-                    </button>
-                  </div>
-                </div>
-
-                {restorePreview ? (
-                  <div className="rounded-xl border border-indigo-200 bg-white p-3 space-y-2">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-                      <div className="rounded-lg border border-slate-200 p-2">
-                        <p className="text-slate-500">Incoming Rows</p>
-                        <p className="font-semibold text-slate-900">
-                          {numberFormatter.format(toNumber(restorePreview.summary?.incoming_rows))}
-                        </p>
-                      </div>
-                      <div className="rounded-lg border border-slate-200 p-2">
-                        <p className="text-slate-500">Would Insert</p>
-                        <p className="font-semibold text-indigo-700">
-                          {numberFormatter.format(toNumber(restorePreview.summary?.would_insert))}
-                        </p>
-                      </div>
-                      <div className="rounded-lg border border-slate-200 p-2">
-                        <p className="text-slate-500">Would Update</p>
-                        <p className="font-semibold text-indigo-700">
-                          {numberFormatter.format(toNumber(restorePreview.summary?.would_update))}
-                        </p>
-                      </div>
-                      <div className="rounded-lg border border-slate-200 p-2">
-                        <p className="text-slate-500">Errors</p>
-                        <p className="font-semibold text-rose-700">
-                          {numberFormatter.format(toNumber(restorePreview.summary?.errors))}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full text-xs">
-                        <thead>
-                          <tr className="text-left text-slate-500">
-                            <th className="py-2 pr-3">Tabel</th>
-                            <th className="py-2 pr-3">Incoming</th>
-                            <th className="py-2 pr-3">Would Insert</th>
-                            <th className="py-2 pr-3">Would Update</th>
-                            <th className="py-2 pr-3">Errors</th>
-                          </tr>
-                        </thead>
-                        <tbody className="text-slate-700">
-                          {(restorePreview.tables || []).map((item) => (
-                            <tr key={item.table} className="border-t border-slate-100">
-                              <td className="py-2 pr-3 font-medium text-slate-900">{item.table}</td>
-                              <td className="py-2 pr-3">{numberFormatter.format(toNumber(item.incoming_rows))}</td>
-                              <td className="py-2 pr-3">{numberFormatter.format(toNumber(item.would_insert || item.inserted))}</td>
-                              <td className="py-2 pr-3">{numberFormatter.format(toNumber(item.would_update || item.updated))}</td>
-                              <td className="py-2 pr-3 text-rose-700">{numberFormatter.format(toNumber(item.errors))}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-500">
-                    Jalankan dry-run dulu untuk melihat simulasi insert/update dan error sebelum apply restore.
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Slug Subdomain</label>
+                  <input
+                    type="text"
+                    value={editForm.slug}
+                    onChange={(e) => setEditForm({ ...editForm, slug: slugify(e.target.value) })}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    required
+                  />
+                  <p className="text-[10px] text-slate-500 italic">
+                    * Mengubah slug akan mengubah URL aplikasi. Gunakan dengan hati-hati.
                   </p>
-                )}
+                </div>
+                <div className="flex justify-end gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditModalOpen(false)}
+                    className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 rounded-lg"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={editing}
+                    className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50"
+                  >
+                    {editing ? 'Menyimpan...' : 'Simpan Perubahan'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+      {/* Delete Tenant Modal */}
+      {
+        isDeleteModalOpen && deletingTenant && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-rose-100">
+              <h3 className="text-lg font-bold text-slate-900 mb-2">Hapus/Arsip Sekolah?</h3>
+              <div className="p-3 bg-rose-50 rounded-xl border border-rose-100 mb-4">
+                <p className="text-sm text-rose-800 leading-relaxed">
+                  <span className="font-bold">Peringatan:</span> Sekolah <span className="font-bold font-mono">"{deletingTenant.slug}"</span> akan diarsipkan (soft delete). Data tidak benar-benar hilang tapi sekolah tidak akan bisa diakses.
+                </p>
               </div>
 
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                Password lama admin tidak bisa ditampilkan karena tersimpan hash. Gunakan tombol reset untuk
-                menghasilkan password baru, lalu lihat dengan ikon mata.
+              <div className="space-y-3">
+                <p className="text-xs text-slate-600">
+                  Ketik slug <span className="font-bold text-slate-900 select-all">{deletingTenant.slug}</span> di bawah untuk konfirmasi:
+                </p>
+                <input
+                  type="text"
+                  value={deleteConfirmation}
+                  onChange={(e) => setDeleteConfirmation(e.target.value)}
+                  placeholder="Konfirmasi slug"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                />
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-slate-500">
-                      <th className="py-2 pr-4">Nama Admin</th>
-                      <th className="py-2 pr-4">Email</th>
-                      <th className="py-2 pr-4">Status</th>
-                      <th className="py-2 pr-4">Verifikasi Email</th>
-                      <th className="py-2 pr-4">Terakhir Aktif</th>
-                      <th className="py-2 pr-4">Password</th>
-                      <th className="py-2 pr-4">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-slate-700">
-                    {detailAdmins.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="py-6 text-center text-slate-500">
-                          Belum ada admin pada tenant ini.
-                        </td>
-                      </tr>
-                    ) : (
-                      detailAdmins.map((admin) => (
-                        <tr key={admin.user_id} className="border-t border-slate-100">
-                          <td className="py-2 pr-4">
-                            <p className="font-semibold text-slate-900">{admin.name || '-'}</p>
-                            {admin.is_primary_admin ? (
-                              <span className="inline-flex mt-1 text-[11px] px-2 py-0.5 rounded-full border border-indigo-200 bg-indigo-100 text-indigo-700">
-                                Admin Utama (Bypass Approval)
-                              </span>
-                            ) : null}
-                          </td>
-                          <td className="py-2 pr-4">{admin.email || '-'}</td>
-                          <td className="py-2 pr-4">
-                            <span
-                              className={`text-xs px-2 py-0.5 rounded-full ${admin.status === 'active'
-                                  ? 'bg-green-100 text-green-700'
-                                  : 'bg-slate-100 text-slate-600'
-                                }`}
-                            >
-                              {admin.status || 'unknown'}
-                            </span>
-                          </td>
-                          <td className="py-2 pr-4 text-slate-600">
-                            {admin.email_verified_at ? 'Terverifikasi' : 'Belum'}
-                          </td>
-                          <td className="py-2 pr-4 text-slate-500">{formatDateTime(admin.last_seen_at)}</td>
-                          <td className="py-2 pr-4 min-w-[220px]">
-                            {temporaryPasswords[admin.user_id] ? (
-                              <PasswordInput
-                                readOnly
-                                value={temporaryPasswords[admin.user_id]}
-                                className="w-full px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-xs text-slate-700"
-                                ariaLabelShow="Tampilkan password sementara"
-                                ariaLabelHide="Sembunyikan password sementara"
-                              />
-                            ) : (
-                              <span className="text-xs text-slate-400">Belum ada password baru</span>
-                            )}
-                          </td>
-                          <td className="py-2 pr-4">
-                            {Boolean(admin.is_super_admin) ? (
-                              <span className="text-xs px-3 py-1.5 rounded-full border border-amber-200 text-amber-700 bg-amber-50">
-                                Terkunci (Super Admin)
-                              </span>
-                            ) : (
-                              <div className="flex flex-wrap items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleResetTenantAdminPassword(admin)}
-                                  disabled={Boolean(resetLoadingByUser[admin.user_id])}
-                                  className="text-xs px-3 py-1.5 rounded-full border border-indigo-200 text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
-                                >
-                                  {resetLoadingByUser[admin.user_id] ? 'Reset...' : 'Reset Password'}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleSetPrimaryAdmin(admin)}
-                                  disabled={
-                                    Boolean(primaryAdminSavingByUser[admin.user_id]) ||
-                                    Boolean(admin.is_primary_admin)
-                                  }
-                                  className="text-xs px-3 py-1.5 rounded-full border border-emerald-200 text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
-                                >
-                                  {primaryAdminSavingByUser[admin.user_id]
-                                    ? 'Menyimpan...'
-                                    : admin.is_primary_admin
-                                      ? 'Admin Utama'
-                                      : 'Jadikan Utama'}
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 rounded-lg"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteConfirm}
+                  disabled={deleting || deleteConfirmation.trim().toLowerCase() !== deletingTenant.slug.toLowerCase()}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg disabled:opacity-50"
+                >
+                  {deleting ? 'Menghapus...' : 'Ya, Arsipkan Sekolah'}
+                </button>
               </div>
-            </>
-          )}
-        </div>
+            </div>
       )}
-    </div>
-  )
-}
+          </>
+        )
+      }
 
-export default Tenants
+      export default Tenants

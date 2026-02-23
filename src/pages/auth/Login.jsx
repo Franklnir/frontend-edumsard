@@ -10,7 +10,7 @@ import '../../styles/Login.css';
 
 const Login = () => {
   const navigate = useNavigate();
-  const { user, profile, login } = useAuthStore();
+  const { user, profile, login, features } = useAuthStore();
 
   const [form, setForm] = useState({
     email: '',
@@ -349,7 +349,7 @@ const Login = () => {
   const address = settings?.alamat || '';
   const phone = settings?.telepon || '';
   const emailSekolah = settings?.email || '';
-  const isGoogleAuthEnabled = Boolean(supabase.auth.isGoogleEnabled?.());
+  const isGoogleAuthEnabled = !!(features?.google_auth_enabled || features?.google_oauth_enabled);
   const adminSubdomain = String(import.meta.env.VITE_ADMIN_SUBDOMAIN || 'admin')
     .trim()
     .toLowerCase();
@@ -360,6 +360,7 @@ const Login = () => {
   const isRootDomain = runtimeHost === rootDomain;
   const isAdminHost =
     runtimeHost === adminSubdomain ||
+    runtimeHost === `${adminSubdomain}.${rootDomain}` ||
     (hostParts.length >= 2 && hostParts[0] === adminSubdomain);
   // Social media links
   const socials = [

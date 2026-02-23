@@ -1034,14 +1034,26 @@ const auth = {
     const res = await apiFetch('/api/auth/me', { method: 'GET' })
     if (res.error) return { data: { session: null }, error: res.error }
     const user = normalizeUser(res.raw?.data?.user, res.raw?.data?.profile)
-    return { data: { session: user ? { user } : null }, error: null }
+    return {
+      data: {
+        session: user ? { user } : null,
+        features: res.raw?.data?.features || {}
+      },
+      error: null
+    }
   },
 
   async getUser() {
     const res = await apiFetch('/api/auth/me', { method: 'GET' })
     if (res.error) return { data: { user: null }, error: res.error }
     const user = normalizeUser(res.raw?.data?.user, res.raw?.data?.profile)
-    return { data: { user }, error: null }
+    return {
+      data: {
+        user,
+        features: res.raw?.data?.features || {}
+      },
+      error: null
+    }
   },
 
   async resetPasswordForEmail(email) {
@@ -1173,6 +1185,20 @@ const auth = {
     },
     async tenantDetail(id) {
       const res = await apiFetch(`/api/super/tenants/${id}`, { method: 'GET' })
+      return { data: res.raw?.data ?? res.data, error: res.error }
+    },
+    async updateTenant(id, payload) {
+      const res = await apiFetch(`/api/super/tenants/${id}`, {
+        method: 'PATCH',
+        body: payload
+      })
+      return { data: res.raw?.data ?? res.data, error: res.error }
+    },
+    async deleteTenant(id, payload) {
+      const res = await apiFetch(`/api/super/tenants/${id}`, {
+        method: 'DELETE',
+        body: payload
+      })
       return { data: res.raw?.data ?? res.data, error: res.error }
     },
     async tenantBackup(id, options = {}) {
