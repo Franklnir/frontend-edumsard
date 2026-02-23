@@ -143,6 +143,13 @@ const Login = () => {
         setError('')
       }
 
+      // Root domain check
+      const rootDomain = String(import.meta.env.VITE_ROOT_DOMAIN || 'syad-iot.biz.id').trim().toLowerCase();
+      const runtimeHost = typeof window !== 'undefined' ? String(window.location.hostname || '').toLowerCase() : '';
+      if (runtimeHost === rootDomain) {
+        setError('Akses tenant harus lewat subdomain sekolah. Contoh: https://smabali.syad-iot.biz.id/login');
+      }
+
       url.searchParams.delete('google')
       url.searchParams.delete('google_error')
       const cleaned = `${url.pathname}${url.search}${url.hash}`
@@ -346,8 +353,11 @@ const Login = () => {
   const adminSubdomain = String(import.meta.env.VITE_ADMIN_SUBDOMAIN || 'admin')
     .trim()
     .toLowerCase();
+  const rootDomain = String(import.meta.env.VITE_ROOT_DOMAIN || 'syad-iot.biz.id').trim().toLowerCase();
   const runtimeHost = typeof window !== 'undefined' ? String(window.location.hostname || '').toLowerCase() : '';
   const hostParts = runtimeHost.split('.').filter(Boolean);
+
+  const isRootDomain = runtimeHost === rootDomain;
   const isAdminHost =
     runtimeHost === adminSubdomain ||
     (hostParts.length >= 2 && hostParts[0] === adminSubdomain);
@@ -575,7 +585,7 @@ const Login = () => {
               <div className="login__action-row">
                 <button
                   type="submit"
-                  disabled={isSubmitting || !form.email || !form.password}
+                  disabled={isSubmitting || !form.email || !form.password || isRootDomain}
                   className="login__submit-btn"
                   aria-label="Masuk"
                 >

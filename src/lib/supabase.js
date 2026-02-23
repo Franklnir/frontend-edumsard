@@ -91,8 +91,14 @@ const normalizeApiUrl = (rawApiUrl, runtimeHost) => {
 
     const runtimeInRoot = isWithinRootDomain(runtime, ROOT_DOMAIN)
     const apiInRoot = isWithinRootDomain(apiHost, ROOT_DOMAIN)
+
+    // Ensure API subdomain (e.g. api.) is preserved and not hijacked by tenant subdomain.
+    // If API_PRESERVE_HOST is false, we only hijack if it's NOT an explicit api subdomain.
     if (!API_PRESERVE_HOST && !runtimeIsLocal && runtimeInRoot && apiInRoot && runtime !== apiHost) {
-      url.hostname = runtime
+      const isExplicitApiSubdomain = apiHost.startsWith('api.')
+      if (!isExplicitApiSubdomain) {
+        url.hostname = runtime
+      }
     }
 
     return url.toString().replace(/\/$/, '')

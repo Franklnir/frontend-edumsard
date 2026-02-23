@@ -541,8 +541,7 @@ const Tenants = () => {
     }
 
     const confirmed = window.confirm(
-      `Ubah status tenant menjadi ${nextStatus}? ${
-        nextStatus === 'active' ? 'Tenant akan bisa login kembali.' : 'Login tenant akan diblokir.'
+      `Ubah status tenant menjadi ${nextStatus}? ${nextStatus === 'active' ? 'Tenant akan bisa login kembali.' : 'Login tenant akan diblokir.'
       }`
     )
     if (!confirmed) return
@@ -710,9 +709,9 @@ const Tenants = () => {
         if (!prev) return prev
         const nextAdmins = Array.isArray(prev.admins)
           ? prev.admins.map((row) => ({
-              ...row,
-              is_primary_admin: String(row?.user_id || '') === String(primaryId)
-            }))
+            ...row,
+            is_primary_admin: String(row?.user_id || '') === String(primaryId)
+          }))
           : prev.admins
 
         return {
@@ -879,21 +878,20 @@ const Tenants = () => {
                   <th className="py-2 pr-4">Subdomain</th>
                   <th className="py-2 pr-4">Status</th>
                   <th className="py-2 pr-4">Dibuat</th>
-                  <th className="py-2 pr-4">Aksi</th>
+                  <th className="py-2 pr-4 text-center">Aksi</th>
                 </tr>
               </thead>
               <tbody className="text-slate-700">
                 {tenants.map((tenant) => (
                   <tr
                     key={tenant.id}
-                    className={`border-t border-slate-100 cursor-pointer hover:bg-slate-50 ${
-                      selectedTenantId === tenant.id ? 'bg-indigo-50/70' : ''
-                    }`}
+                    className={`border-t border-slate-100 cursor-pointer hover:bg-slate-50 ${selectedTenantId === tenant.id ? 'bg-indigo-50/70' : ''
+                      }`}
                     onClick={() => handleSelectTenant(tenant.id)}
                   >
                     <td className="py-2 pr-4 font-semibold text-slate-900">{tenant.name || '-'}</td>
                     <td className="py-2 pr-4">
-                      {tenant.slug ? `${tenant.slug}.${rootDomain}` : '-'}
+                      {tenant.subdomain_host || (tenant.slug ? `${tenant.slug}.${rootDomain}` : '-')}
                     </td>
                     <td className="py-2 pr-4">
                       <span
@@ -906,16 +904,27 @@ const Tenants = () => {
                     </td>
                     <td className="py-2 pr-4 text-slate-500">{formatDateTime(tenant.created_at)}</td>
                     <td className="py-2 pr-4">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleSelectTenant(tenant.id)
-                        }}
-                        className="text-xs px-3 py-1.5 rounded-full border border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                      >
-                        Detail
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleSelectTenant(tenant.id)
+                          }}
+                          className="text-xs px-3 py-1.5 rounded-full border border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                        >
+                          Detail
+                        </button>
+                        <a
+                          href={tenant.login_url || (tenant.slug ? `https://${tenant.slug}.${rootDomain}/login` : '#')}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-xs px-3 py-1.5 rounded-full bg-indigo-600 text-white font-semibold hover:bg-indigo-700"
+                        >
+                          Buka
+                        </a>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -933,7 +942,7 @@ const Tenants = () => {
                 {detailTenant?.name || 'Detail Sekolah'}
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                {detailTenant?.slug ? `${detailTenant.slug}.${rootDomain}` : '-'}
+                {detailTenant?.subdomain_host || (detailTenant?.slug ? `${detailTenant.slug}.${rootDomain}` : '-')}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <span
@@ -953,6 +962,14 @@ const Tenants = () => {
                     Update: {formatDateTime(detailTenant.status_changed_at)}
                   </span>
                 )}
+                <a
+                  href={detailTenant?.login_url || (detailTenant?.slug ? `https://${detailTenant.slug}.${rootDomain}/login` : '#')}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full hover:bg-indigo-100"
+                >
+                  Buka Panel Login
+                </a>
                 <span className="text-xs text-indigo-700 bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-full">
                   Admin Utama:{' '}
                   {primaryAdminInfo?.name ||
@@ -970,13 +987,12 @@ const Tenants = () => {
                     type="button"
                     onClick={() => handleTenantStatusUpdate(option.value)}
                     disabled={statusSaving || detailLoading || detailTenant?.status === option.value}
-                    className={`text-xs px-3 py-1.5 rounded-full border disabled:opacity-60 ${
-                      option.value === 'active'
+                    className={`text-xs px-3 py-1.5 rounded-full border disabled:opacity-60 ${option.value === 'active'
                         ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
                         : option.value === 'suspended'
                           ? 'border-amber-200 text-amber-700 hover:bg-amber-50'
                           : 'border-rose-200 text-rose-700 hover:bg-rose-50'
-                    }`}
+                      }`}
                   >
                     {statusSaving && detailTenant?.status !== option.value
                       ? 'Menyimpan...'
@@ -1325,11 +1341,10 @@ const Tenants = () => {
                           <td className="py-2 pr-4">{admin.email || '-'}</td>
                           <td className="py-2 pr-4">
                             <span
-                              className={`text-xs px-2 py-0.5 rounded-full ${
-                                admin.status === 'active'
+                              className={`text-xs px-2 py-0.5 rounded-full ${admin.status === 'active'
                                   ? 'bg-green-100 text-green-700'
                                   : 'bg-slate-100 text-slate-600'
-                              }`}
+                                }`}
                             >
                               {admin.status || 'unknown'}
                             </span>
